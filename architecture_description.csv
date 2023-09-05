@@ -1,0 +1,16 @@
+architecture,function_type,variance,first_parameter,second_parameter
+FoE,splines,15,6,35
+FoE,splines,25,5,30
+FoE,splines,50,9,30
+FoE,decreasing,15,8,30
+FoE,decreasing,25,10,25
+FoE,decreasing,50,7,25
+FoE,monomials,15,7,10
+FoE,monomials,25,8,10
+FoE,monomials,50,6,15
+FoE,RothBlack,15,11,30
+FoE,RothBlack,25,12,25
+FoE,RothBlack,50,5,20
+UNet,base,15,3,2
+UNet,base,25,3,3
+UNet,base,50,5,4

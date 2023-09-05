@@ -1,31 +1,36 @@
 import numpy as np
 
 
-def anisodiff(img, niter=1, lambd=50, gamma=0.1, step=(1., 1.), option=1):
+def anisodiff(img, niter=1, K=50, gamma=0.1, option=1):
+    """
+    :param img: numpy array. Input image to be diffused.
+    :param niter: int. Number of iterations to be done.
+    :param K: float. Parameter for diffusion. Cannot be zero.
+    :param gamma: float. Step size.
+    :param option: 1, 2. Usual diffusivity to use.
+    Options 1 and 2 correspond to the    exponential and non-exponential
+    usual diffusivities respectively.
+    :return: numpy array. Image after diffusion.
+    Implementation of the Perona-Malik algorithm for anisotropic diffusion.
+    """
     img = img.astype('float32')
     imgout = img.copy()
 
-    deltaS = np.zeros_like(imgout)
-    deltaE = deltaS.copy()
-    NS = deltaS.copy()
-    EW = deltaS.copy()
+    NS = np.zeros_like(imgout)
+    EW = NS.copy()
     gS = np.ones_like(imgout)
     gE = gS.copy()
 
     for _ in np.arange(1, niter):
 
-        deltaS[:-1, :] = np.diff(imgout, axis=0)
-        deltaE[:, :-1] = np.diff(imgout, axis=1)
-
-        deltaSf = deltaS
-        deltaEf = deltaE
+        deltaS, deltaE = np.gradient(imgout)
 
         if option == 1:
-            gS = np.exp(-(deltaSf / lambd) ** 2.) / step[0]
-            gE = np.exp(-(deltaEf / lambd) ** 2.) / step[1]
+            gS = np.exp(-(deltaS / K) ** 2.)
+            gE = np.exp(-(deltaE / K) ** 2.)
         elif option == 2:
-            gS = 1. / (1. + (deltaSf / lambd) ** 2.) / step[0]
-            gE = 1. / (1. + (deltaEf / lambd) ** 2.) / step[1]
+            gS = 1. / (1. + (deltaS / K) ** 2.)
+            gE = 1. / (1. + (deltaE / K) ** 2.)
         E = gE * deltaE
         S = gS * deltaS
 

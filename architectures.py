@@ -3,13 +3,25 @@ import tensorflow as tf
 
 
 class KAutomation(tf.keras.Model):
+    """
+    Implementation for a model to automize the choosing of parameter K in the Perona-Malik model
+    for anisotropic diffusion.
+    We only consider gray-scale images.
+    """
     def __init__(self, option, crop, it_lim=10, gamma=1.):
+        """
+        :param option: 1 or 2. Usual diffusivity to use in the anisotropic diffusion model.
+        Options 1 and 2 are the exponential and non-exponential usual diffusivities respectively.
+        :param crop: int. Image size. Only considering square images.
+        :param it_lim: int. Number of iterations to be made.
+        :param gamma: float. Step size.
+        """
         super().__init__()
         self.it_lim = it_lim
         self.gamma = gamma
         self.option = option
         self.loss_tracker = tf.keras.metrics.Mean(name="loss")
-        self.CROP = crop
+        self.crop = crop
 
         input_shape = (crop, crop, 1)
 
@@ -65,7 +77,6 @@ class KAutomation(tf.keras.Model):
         return {"loss": self.loss_tracker.result()}
 
     def test_step(self, data):
-
         x, y = data
         outputs = self.denoiser(x)
         loss = tf.keras.losses.mean_squared_error(outputs, y)
@@ -73,6 +84,15 @@ class KAutomation(tf.keras.Model):
         return {"loss": self.loss_tracker.result()}
 
     def get_kappa(self, kernel_size=3, pool_size=3, latent_size=1024):
+        """
+        :param kernel_size: int. Size of filters for convolutional layers.
+        :param pool_size: int. Pool size for MaxPool layers
+        :param latent_size: int. Size of latent space.
+        :return: Keras model. Model to give a value to use for K.
+        We see this as an embedding of images into real numbers.
+        First we embed the image into a latent space of chosen dimension and then a real number
+        is chosen from that latent representation.
+        """
         inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
         x = tf.keras.layers.Conv2D(32, kernel_size, strides=2, padding="same")(inputs)
         x = tf.keras.layers.BatchNormalization()(x)
@@ -110,7 +130,10 @@ class KAutomation(tf.keras.Model):
         return tf.keras.Model(inputs, x, name='kappa')
 
     def get_differential_operator(self):
-
+        """
+        :return: Keras model.
+        Computes the diffusivity output for the anisotropic diffusion equation.
+        """
         inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
         k = self.kappa(inputs)
         k = tf.keras.layers.Lambda(lambda z: 1. / (1. + tf.pow(z, 2.)))(k)
@@ -132,7 +155,20 @@ class KAutomation(tf.keras.Model):
 
 
 class FoE(tf.keras.Model):
+    """
+    Implementation of the anisotropic diffusion equation when a Fields of Experts (FoE) model is used.
+    We only consider gray-scale images.
+    """
     def __init__(self, typee, degree, num_filters, crop, it_lim=10, num_classes=20, gamma=1.):
+        """
+        :param typee: str. Function type to use
+        :param degree: int. Size of kernels. All kernels are square.
+        :param num_filters: int. Number of experts to use.
+        :param crop: int. Image size. Only considering squared images.
+        :param it_lim: int. Number of iterations to make for the diffusion.
+        :param num_classes: int. Number of pieces in which to define the diffusivities.
+        :param gamma: float. Step size
+        """
         super().__init__()
         self.it_lim = it_lim
         self.gamma = gamma
@@ -184,12 +220,10 @@ class FoE(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-
         return self.denoiser(inputs, **kwargs)
 
     def train_step(self, data):
         x, y = data
-
         with tf.GradientTape() as tape:
             outputs = self.denoiser(x)
             loss = tf.keras.losses.mean_squared_error(outputs, y)
@@ -202,25 +236,31 @@ class FoE(tf.keras.Model):
         return {"loss": self.loss_tracker.result()}
 
     def test_step(self, data):
-
         x, y = data
-
         outputs = self.denoiser(x)
         loss = tf.keras.losses.mean_squared_error(outputs, y)
         self.loss_tracker.update_state(loss)
         return {"loss": self.loss_tracker.result()}
 
     def get_experts(self, input_shape):
+        """
+        :param input_shape: tuple. Image size.
+        :return: Keras model. This model will filter the input image for the FoE model.
+        A remark should be made about the filters including a sigmoid activation for implementation
+        purposes since some diffusivities were defined in a piecewise fashion.
+        """
         inputs = tf.keras.Input(shape=input_shape)
         experts = tf.keras.layers.Lambda(lambda z: tf.image.per_image_standardization(z))(inputs)
         experts = tf.keras.layers.Conv2D(self.num_filters, (self.degree, self.degree), padding='same',
                                          use_bias=False, activation='sigmoid', name='experts')(experts)
-
-        experts = tf.keras.layers.Reshape((self.CROP, self.CROP, self.num_filters, 1))(experts)
-
+        experts = tf.keras.layers.Reshape((self.crop, self.crop, self.num_filters, 1))(experts)
         return tf.keras.Model(inputs, experts, name='filter_experts')
 
     def get_model_functions(self, input_shape):
+        """
+        :param input_shape: tuple. Image size
+        :return: Keras model for computing necessary parameters to define diffusivities.
+        """
         inp_ones = tf.keras.Input(shape=input_shape)
         crop_ones = tf.keras.layers.Lambda(lambda z: tf.unstack(z, axis=1))(inp_ones)
         crop_ones = tf.keras.layers.add(crop_ones)
@@ -253,6 +293,10 @@ class FoE(tf.keras.Model):
         return model_functions
 
     def get_differential_operator(self):
+        """
+        :return: Keras model. Takes images and their filtered versions as inputs and gives back
+        the diffusivity's output.
+        """
         inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
 
         if (self.typee == 'splines') or (self.typee == 'decreasing'):
@@ -336,7 +380,18 @@ class FoE(tf.keras.Model):
 
 
 class UNet(tf.keras.Model):
+    """
+    Implementation of the anisotropic diffusion equation when using a U-Net to produce the anisotropy.
+    We only consider gray-scale images.
+    """
     def __init__(self, crop, depth, degree, it_lim=10, gamma=0.005):
+        """
+        :param crop: int. Image size.
+        :param depth: int. Depth of U-Net.
+        :param degree: int. Size of convolutional kernels. All kernels are squared.
+        :param it_lim: int. Number of iterations for diffusion.
+        :param gamma: float. Step size
+        """
         super().__init__()
         self.it_lim = it_lim
         self.gamma = gamma
@@ -381,7 +436,6 @@ class UNet(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-
         return self.denoiser(inputs, **kwargs)
 
     def train_step(self, data):
@@ -405,6 +459,13 @@ class UNet(tf.keras.Model):
         return {"loss": self.loss_tracker.result()}
 
     def conv_block(self, x, n_filt, size_conv=(5, 5), n_conv=3):
+        """
+        :param x: tensor. Input for convolutional block.
+        :param n_filt: int. Number of filters.
+        :param size_conv: int. Kernel size.
+        :param n_conv: int. Size of convolutional block.
+        :return: tensor. Output from convolutional block.
+        """
         for c in range(n_conv):
             x = tf.keras.layers.Conv2D(n_filt, size_conv, padding="same", activation=None)(x)
             x = tf.keras.layers.BatchNormalization()(x)
@@ -412,15 +473,36 @@ class UNet(tf.keras.Model):
         return x
 
     def u_encoder(self, x, n_filt, degree=5):
+        """
+        :param x: tensor. Input for encoding step.
+        :param n_filt: int. Size of convolutional block.
+        :param degree: int. Kernel size for convolutional layers. All kernels are square.
+        :return: tuple of tensors. Necessary tensors for building U-Net.
+        """
         x = self.conv_block(x, n_filt, size_conv=(degree, degree))
         return tf.keras.layers.MaxPool2D()(x), x
 
     def u_decoder(self, pooled, skipped, n_filt, degree=5):
+        """
+        :param pooled: tensor. Input for transpose convolution.
+        :param skipped: tensor. Skipped tensor from U-Net.
+        :param n_filt: int. Number of filters for transpose convolution.
+        :param degree: int. Kernel size. Using squared kernels.
+        :return: tensor. Upsampled tensor for U-Net.
+        """
         upsampled = tf.keras.layers.Convolution2DTranspose(n_filt, (degree, degree), strides=(2, 2),
                                                            padding='same')(pooled)
         return self.conv_block(tf.keras.layers.concatenate([upsampled, skipped]), n_filt)
 
     def get_differential_operator(self, input_shape, depth=5, degree=5, output_channels=1, nfilt=2):
+        """
+        :param input_shape: tuple. Image size.
+        :param depth: int. Depth for U-Net.
+        :param degree: int. Kernel size.
+        :param output_channels: int. Number of output channels for U-Net.
+        :param nfilt: int. Parameter to generate number of filters.
+        :return: Keras model. U-Net to be used as differential operator.
+        """
         skipped = []
         inp = tf.keras.Input(input_shape, name='input')
         p = inp
@@ -432,3 +514,22 @@ class UNet(tf.keras.Model):
             p = self.u_decoder(p, skipped[_], 2 ** (nfilt + _), degree=degree)
         p = tf.keras.layers.Conv2D(output_channels, (1, 1), activation='relu')(p)
         return tf.keras.Model(inp, p, name='differential_operator')
+
+
+def get_nn(architecture, crop, first, second, niter=10, function_type='splines'):
+    """
+    :param architecture: str. Can be KAutomation, FoE or UNet.
+    :param crop: int. Image size using square images.
+    :param first: int. First parameter describing the desired model.
+    :param second: int. Second parameter describing the desired model.
+    :param niter: int. Number of iterations to be done in diffusion
+    :param function_type: str. Type of diffusivity function ot be used in FoE
+    :return: Keras model. Implementation for the anisotropic diffusion equation.
+    """
+    if architecture == 'KAutomation':
+        return KAutomation(crop=crop, it_lim=niter, option=2)
+    elif architecture == 'FoE':
+        return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
+                   typee=function_type)
+    elif architecture == 'UNet':
+        return UNet(crop=crop,degree=first, depth=second, it_lim=niter)

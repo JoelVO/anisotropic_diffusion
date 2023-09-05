@@ -1,2 +1,2 @@
-model_checkpoint_path: "RothBlack_50"
-all_model_checkpoint_paths: "RothBlack_50"
+model_checkpoint_path: "FoE_RothBlack_50_5_20"
+all_model_checkpoint_paths: "FoE_RothBlack_50_5_20"
