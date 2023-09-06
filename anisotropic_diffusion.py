@@ -124,9 +124,17 @@ if __name__ == '__main__':
     shapes = [im.shape for im in images]
     unique_shapes = np.unique(shapes, axis=0)
 
+    if architecture == 'UNet':
+        if function_type != 'base':
+            print('The only available function_type for the selected architecture is base.Changing function_type')
+        function_type = 'base'
+
     if architecture not in ['PeronaMalik', 'KAutomation']:
         df = pd.read_csv('./architecture_description.csv')
-        search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+        if architecture == 'FoE':
+            search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+        if architecture == 'UNet':
+            search = (df.architecture == architecture) & (df.variance == variance)
         first, second = df[search].values[0, -2:]
     else:
         first, second = 0, 0

@@ -532,4 +532,4 @@ def get_nn(architecture, crop, first, second, niter=10, function_type='splines')
         return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
                    typee=function_type)
     elif architecture == 'UNet':
-        return UNet(crop=crop,degree=first, depth=second, it_lim=niter)
+        return UNet(crop=crop, degree=first, depth=second, it_lim=niter)
