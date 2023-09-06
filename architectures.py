@@ -516,7 +516,7 @@ class UNet(tf.keras.Model):
         return tf.keras.Model(inp, p, name='differential_operator')
 
 
-def get_nn(architecture, crop, first, second, niter=10, function_type='splines'):
+def get_nn(architecture, crop, first, second, niter=10, function_type='splines',gamma=None):
     """
     :param architecture: str. Can be KAutomation, FoE or UNet.
     :param crop: int. Image size using square images.
@@ -527,9 +527,19 @@ def get_nn(architecture, crop, first, second, niter=10, function_type='splines')
     :return: Keras model. Implementation for the anisotropic diffusion equation.
     """
     if architecture == 'KAutomation':
-        return KAutomation(crop=crop, it_lim=niter, option=2)
+        if gamma is None:
+            return KAutomation(crop=crop, it_lim=niter, option=first)
+        else:
+            return KAutomation(crop=crop, it_lim=niter, option=first, gamma=gamma)
     elif architecture == 'FoE':
-        return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
+        if gamma is None:
+            return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
                    typee=function_type)
+        else:
+            return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
+                       typee=function_type,gamma=gamma)
     elif architecture == 'UNet':
-        return UNet(crop=crop, degree=first, depth=second, it_lim=niter)
+        if gamma is None:
+            return UNet(crop=crop, degree=first, depth=second, it_lim=niter)
+        else:
+            return UNet(crop=crop, degree=first, depth=second, it_lim=niter,gamma=gamma)

@@ -1,3 +1,54 @@
+def diffusor(architecture, variance, function_type=None, niter=10, crop=256, option=None, gamma=None, degree=None, num_filters=None, depth=None):
+    if architecture == 'PeronaMalik':
+        return anisodiff
+
+    elif architecture == 'KAutomation':
+        if option is None:
+            model = get_nn(architecture=architecture, crop=crop, first=2, second=0, niter=niter, gamma=gamma)
+            model.load_weights(f'./checkpoints/{variance}_2')
+            return model
+        else:
+            return get_nn(architecture=architecture, crop=crop, first=option, second=0, niter=niter,gamma=gamma)
+
+    elif architecture == 'FoE':
+        if function_type is None:
+            return None
+
+        if (degree is not None) and (num_filters is not None):
+            return get_nn(architecture=architecture, crop=crop, first=degree, second=num_filters, niter=niter, function_type=function_type, gamma=gamma)
+
+        elif (degree is None) and (num_filters is None):
+            df = pd.read_csv('./architecture_description.csv')
+            search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+            first, second = df[search].values[0, -2:]
+            model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
+            model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
+            return model
+        else:
+            return None
+
+    elif architecture == 'UNet':
+        if function_type is not None:
+            return None
+
+        if (degree is not None) and (depth is not None):
+            return get_nn(architecture=architecture, crop=crop, first=degree, second=depth, niter=niter, function_type=function_type, gamma=gamma)
+        elif (degree is None) and (num_filters is None):
+            df = pd.read_csv('./architecture_description.csv')
+            search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+            first, second = df[search].values[0, -2:]
+            model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
+            model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
+            return model
+        else:
+            return None
+
+    else:
+        return None
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -5,7 +56,7 @@ if __name__ == '__main__':
     import getopt
 
     architecture = None
-    function_type = 'splines'
+    function_type = None
     variance = None
     niter = 10
     K, option, gamma = 50, None, 0.1
@@ -82,6 +133,8 @@ if __name__ == '__main__':
         sys.exit()
 
     if architecture == 'FoE':
+        if function_type is None:
+            function_type = 'splines'
         if function_type not in ['splines', 'decreasing', 'monomials', 'RothBlack']:
             message = """
             When the selected architecture is FoE, the valid function types are:
@@ -125,8 +178,8 @@ if __name__ == '__main__':
     unique_shapes = np.unique(shapes, axis=0)
 
     if architecture == 'UNet':
-        if function_type != 'base':
-            print('The only available function_type for the selected architecture is base.Changing function_type')
+        if function_type is not None:
+            print('This architecture does not have options for function_type.')
         function_type = 'base'
 
     if architecture not in ['PeronaMalik', 'KAutomation']:
@@ -137,7 +190,7 @@ if __name__ == '__main__':
             search = (df.architecture == architecture) & (df.variance == variance)
         first, second = df[search].values[0, -2:]
     else:
-        first, second = 0, 0
+        first, second = 2, 0
 
     for crop in unique_shapes[:, 0]:
         print('Reconstructing images of size ', (crop, crop))
@@ -157,5 +210,6 @@ if __name__ == '__main__':
 
         if architecture == 'PeronaMalik':
             for i, image in tqdm(enumerate(images_size)):
-                reconstructed = anisodiff(image, K=K, gamma=gamma, option=option)
+                reconstructed = anisodiff(image, K=K, gamma=gamma, option=option, niter=niter)
                 cv2.imwrite(f'{target_folder}/{images_size_names[i]}', reconstructed)
+
