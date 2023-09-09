@@ -14,6 +14,8 @@ def anisodiff(img, niter=1, K=50, gamma=0.1, option=1):
     Implementation of the Perona-Malik algorithm for anisotropic diffusion.
     """
     img = img.astype('float32')
+    original_shape = np.copy(img).shape
+    img = np.squeeze(img)
     imgout = img.copy()
 
     NS = np.zeros_like(imgout)
@@ -41,4 +43,4 @@ def anisodiff(img, niter=1, K=50, gamma=0.1, option=1):
 
         imgout += gamma * (NS + EW)
 
-    return imgout
+    return imgout.reshape(original_shape)

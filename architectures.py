@@ -61,7 +61,7 @@ class KAutomation(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs, **kwargs)
+        return self.denoiser(inputs)
 
     def train_step(self, data):
         x, y = data
@@ -220,7 +220,7 @@ class FoE(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs, **kwargs)
+        return self.denoiser(inputs)
 
     def train_step(self, data):
         x, y = data
@@ -436,7 +436,7 @@ class UNet(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs, **kwargs)
+        return self.denoiser(inputs)
 
     def train_step(self, data):
         x, y = data

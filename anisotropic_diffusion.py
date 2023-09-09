@@ -1,50 +1,61 @@
-def diffusor(architecture, variance, function_type=None, niter=10, crop=256, option=None, gamma=None, degree=None, num_filters=None, depth=None):
+def diffusor(architecture, variance=None, function_type=None, niter=10, crop=256, option=None, gamma=None, degree=None, num_filters=None, depth=None):
+    import pandas as pd
+
     if architecture == 'PeronaMalik':
+        from pm_algorithm import anisodiff
         return anisodiff
 
-    elif architecture == 'KAutomation':
-        if option is None:
-            model = get_nn(architecture=architecture, crop=crop, first=2, second=0, niter=niter, gamma=gamma)
-            model.load_weights(f'./checkpoints/{variance}_2')
-            return model
-        else:
-            return get_nn(architecture=architecture, crop=crop, first=option, second=0, niter=niter,gamma=gamma)
-
-    elif architecture == 'FoE':
-        if function_type is None:
-            return None
-
-        if (degree is not None) and (num_filters is not None):
-            return get_nn(architecture=architecture, crop=crop, first=degree, second=num_filters, niter=niter, function_type=function_type, gamma=gamma)
-
-        elif (degree is None) and (num_filters is None):
-            df = pd.read_csv('./architecture_description.csv')
-            search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
-            first, second = df[search].values[0, -2:]
-            model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
-            model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
-            return model
-        else:
-            return None
-
-    elif architecture == 'UNet':
-        if function_type is not None:
-            return None
-
-        if (degree is not None) and (depth is not None):
-            return get_nn(architecture=architecture, crop=crop, first=degree, second=depth, niter=niter, function_type=function_type, gamma=gamma)
-        elif (degree is None) and (num_filters is None):
-            df = pd.read_csv('./architecture_description.csv')
-            search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
-            first, second = df[search].values[0, -2:]
-            model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
-            model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
-            return model
-        else:
-            return None
-
     else:
-        return None
+        from architectures import get_nn
+        import logging
+        logging.getLogger('tensorflow').disabled = True
+
+        if architecture == 'KAutomation':
+            if option is None:
+                model = get_nn(architecture=architecture, crop=crop, first=2, second=0, niter=niter, gamma=gamma)
+                if variance is not None:
+                    model.load_weights(f'./checkpoints/{variance}_2')
+                return model
+            else:
+                return get_nn(architecture=architecture, crop=crop, first=option, second=0, niter=niter,gamma=gamma)
+
+        elif architecture == 'FoE':
+            if function_type is None:
+                return None
+
+            if (degree is not None) and (num_filters is not None):
+                return get_nn(architecture=architecture, crop=crop, first=degree, second=num_filters, niter=niter, function_type=function_type, gamma=gamma)
+
+            elif (degree is None) and (num_filters is None) and (variance is not None):
+                df = pd.read_csv('./architecture_description.csv')
+                search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+                first, second = df[search].values[0, -2:]
+                model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
+                model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
+                return model
+            else:
+                return None
+
+        elif architecture == 'UNet':
+            if function_type is not None:
+                return None
+
+            function_type = 'base'
+
+            if (degree is not None) and (depth is not None):
+                return get_nn(architecture=architecture, crop=crop, first=degree, second=depth, niter=niter, function_type=function_type, gamma=gamma)
+            elif (degree is None) and (num_filters is None) and (variance is not None):
+                df = pd.read_csv('./architecture_description.csv')
+                search = (df.architecture == architecture) & (df.function_type == function_type) & (df.variance == variance)
+                first, second = df[search].values[0, -2:]
+                model = get_nn(architecture=architecture, crop=crop, first=first, second=second, niter=niter, function_type=function_type, gamma=gamma)
+                model.load_weights(f'./checkpoints/{architecture}_{function_type}_{variance}_{first}_{second}')
+                return model
+            else:
+                return None
+
+        else:
+            return None
 
 
 
