@@ -8,7 +8,7 @@ class KAutomation(tf.keras.Model):
     for anisotropic diffusion.
     We only consider gray-scale images.
     """
-    def __init__(self, option, crop, it_lim=10, gamma=1.):
+    def __init__(self, option, crop, it_lim=10, gamma=1., pad=16):
         """
         :param option: 1 or 2. Usual diffusivity to use in the anisotropic diffusion model.
         Options 1 and 2 are the exponential and non-exponential usual diffusivities respectively.
@@ -22,8 +22,9 @@ class KAutomation(tf.keras.Model):
         self.option = option
         self.loss_tracker = tf.keras.metrics.Mean(name="loss")
         self.crop = crop
+        self.pad = pad
 
-        input_shape = (crop, crop, 1)
+        input_shape = (crop + 2*pad, crop + 2*pad, 1)
 
         self.kappa = self.get_kappa()
         self.differential_operator = self.get_differential_operator()
@@ -61,7 +62,14 @@ class KAutomation(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs)
+        gray_level = tf.math.reduce_mean(inputs)
+        x_pad = gray_level * tf.ones((inputs.shape[0], self.pad, self.crop, 1), dtype=inputs.dtype)
+        y_pad = gray_level * tf.ones((inputs.shape[0], self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+
+        inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
+        inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
+        reconstructed = self.denoiser(inputs)
+        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
 
     def train_step(self, data):
         x, y = data
@@ -93,7 +101,7 @@ class KAutomation(tf.keras.Model):
         First we embed the image into a latent space of chosen dimension and then a real number
         is chosen from that latent representation.
         """
-        inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
+        inputs = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, 1))
         x = tf.keras.layers.Conv2D(32, kernel_size, strides=2, padding="same")(inputs)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.Activation("relu")(x)
@@ -134,7 +142,7 @@ class KAutomation(tf.keras.Model):
         :return: Keras model.
         Computes the diffusivity output for the anisotropic diffusion equation.
         """
-        inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
+        inputs = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, 1))
         k = self.kappa(inputs)
         k = tf.keras.layers.Lambda(lambda z: 1. / (1. + tf.pow(z, 2.)))(k)
         k = tf.keras.layers.Lambda(lambda z: tf.expand_dims(tf.expand_dims(z, 1), 1))(k)
@@ -159,7 +167,8 @@ class FoE(tf.keras.Model):
     Implementation of the anisotropic diffusion equation when a Fields of Experts (FoE) model is used.
     We only consider gray-scale images.
     """
-    def __init__(self, typee, degree, num_filters, crop, it_lim=10, num_classes=20, gamma=1.):
+
+    def __init__(self, typee, degree, num_filters, crop, it_lim=10, num_classes=20, gamma=1., pad=16):
         """
         :param typee: str. Function type to use
         :param degree: int. Size of kernels. All kernels are square.
@@ -178,15 +187,16 @@ class FoE(tf.keras.Model):
         self.num_classes = num_classes
         self.degree = degree
         self.crop = crop
+        self.pad = pad
 
-        input_shape = (crop, crop, 1)
+        input_shape = (crop + 2*pad, crop + 2*pad, 1)
 
         self.filter_experts = self.get_experts(input_shape)
         self.model_functions = self.get_model_functions(input_shape)
         self.differential_operator = self.get_differential_operator()
 
         outputs = tf.keras.Input(shape=input_shape)
-        experts = tf.keras.Input(shape=(crop, crop, self.num_filters, 1))
+        experts = tf.keras.Input(shape=(crop+2*self.pad, crop+2*self.pad, self.num_filters, 1))
         g = self.differential_operator([outputs, experts])
 
         deltaS, deltaE = tf.keras.layers.Lambda(lambda z: tf.image.image_gradients(z))(outputs)
@@ -220,7 +230,14 @@ class FoE(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs)
+        gray_level = tf.math.reduce_mean(inputs)
+        x_pad = gray_level * tf.ones((inputs.shape[0], self.pad, self.crop, 1), dtype=inputs.dtype)
+        y_pad = gray_level * tf.ones((inputs.shape[0], self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+
+        inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
+        inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
+        reconstructed = self.denoiser(inputs)
+        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
 
     def train_step(self, data):
         x, y = data
@@ -253,7 +270,7 @@ class FoE(tf.keras.Model):
         experts = tf.keras.layers.Lambda(lambda z: tf.image.per_image_standardization(z))(inputs)
         experts = tf.keras.layers.Conv2D(self.num_filters, (self.degree, self.degree), padding='same',
                                          use_bias=False, activation='sigmoid', name='experts')(experts)
-        experts = tf.keras.layers.Reshape((self.crop, self.crop, self.num_filters, 1))(experts)
+        experts = tf.keras.layers.Reshape((self.crop + 2*self.pad, self.crop + 2*self.pad, self.num_filters, 1))(experts)
         return tf.keras.Model(inputs, experts, name='filter_experts')
 
     def get_model_functions(self, input_shape):
@@ -297,10 +314,10 @@ class FoE(tf.keras.Model):
         :return: Keras model. Takes images and their filtered versions as inputs and gives back
         the diffusivity's output.
         """
-        inputs = tf.keras.Input(shape=(self.crop, self.crop, 1))
+        inputs = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, 1))
 
         if (self.typee == 'splines') or (self.typee == 'decreasing'):
-            experts = tf.keras.Input(shape=(self.crop, self.crop, self.num_filters, 1))
+            experts = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, self.num_filters, 1))
             f, g = self.model_functions(inputs)
             f = tf.keras.layers.Reshape((1, 1, self.num_filters, self.num_classes))(f)
             g = tf.keras.layers.Lambda(lambda z: tf.pow(z, 2), name='g')(g)
@@ -347,7 +364,7 @@ class FoE(tf.keras.Model):
             return differential_operator
 
         elif self.typee == 'monomials':
-            experts_input = tf.keras.Input(shape=(self.crop, self.crop, self.num_filters, 1))
+            experts_input = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, self.num_filters, 1))
             f, g = self.model_functions(inputs)
             experts = tf.keras.layers.Lambda(lambda z: tf.unstack(z, axis=-2))(experts_input)
             f = tf.keras.layers.Lambda(lambda z: tf.expand_dims(tf.unstack(z, axis=-1), axis=-1))(f)
@@ -369,7 +386,7 @@ class FoE(tf.keras.Model):
             return differential_operator
 
         elif self.typee == 'RothBlack':
-            experts_input = tf.keras.Input(shape=(self.crop, self.crop, self.num_filters, 1))
+            experts_input = tf.keras.Input(shape=(self.crop+2*self.pad, self.crop+2*self.pad, self.num_filters, 1))
             experts = tf.keras.layers.Lambda(lambda z: 1. + 0.5 * tf.pow(z, 2.))(experts_input)
             f = self.model_functions(inputs)
             functions = tf.keras.layers.Lambda(lambda z: tf.pow(z[0], -z[1]))([experts, f])
@@ -384,7 +401,7 @@ class UNet(tf.keras.Model):
     Implementation of the anisotropic diffusion equation when using a U-Net to produce the anisotropy.
     We only consider gray-scale images.
     """
-    def __init__(self, crop, depth, degree, it_lim=10, gamma=0.005):
+    def __init__(self, crop, depth, degree, it_lim=10, gamma=1e-1, pad=8, batch_size=10):
         """
         :param crop: int. Image size.
         :param depth: int. Depth of U-Net.
@@ -399,8 +416,10 @@ class UNet(tf.keras.Model):
         self.crop = crop
         self.depth = depth
         self.degree = degree
+        self.pad = pad
+        self.batch_size = batch_size
 
-        input_shape = (crop, crop, 1)
+        input_shape = (crop+2*pad, crop+2*pad, 1)
         self.differential_operator = self.get_differential_operator(input_shape, depth, degree)
 
         outputs = tf.keras.Input(shape=input_shape)
@@ -436,12 +455,24 @@ class UNet(tf.keras.Model):
         self.denoiser = tf.keras.Model(inputs, outputs)
 
     def call(self, inputs, **kwargs):
-        return self.denoiser(inputs)
+        gray_level = tf.math.reduce_mean(inputs)
+
+        if inputs.shape[0] is not None:
+            x_pad = gray_level * tf.ones((inputs.shape[0], self.pad, self.crop, 1), dtype=inputs.dtype)
+            y_pad = gray_level * tf.ones((inputs.shape[0], self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+        else:
+            x_pad = gray_level * tf.ones((self.batch_size, self.pad, self.crop, 1), dtype=inputs.dtype)
+            y_pad = gray_level * tf.ones((self.batch_size, self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+
+        inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
+        inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
+        reconstructed = self.denoiser(inputs)
+        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
 
     def train_step(self, data):
         x, y = data
         with tf.GradientTape() as tape:
-            outputs = self.denoiser(x)
+            outputs = self(x)
             loss = tf.keras.losses.mean_squared_error(outputs, y)
 
         trainable_vars = self.trainable_variables
@@ -453,7 +484,7 @@ class UNet(tf.keras.Model):
 
     def test_step(self, data):
         x, y = data
-        outputs = self.denoiser(x)
+        outputs = self(x)
         loss = tf.keras.losses.mean_squared_error(outputs, y)
         self.loss_tracker.update_state(loss)
         return {"loss": self.loss_tracker.result()}
@@ -505,14 +536,15 @@ class UNet(tf.keras.Model):
         """
         skipped = []
         inp = tf.keras.Input(input_shape, name='input')
-        p = inp
+        inp1 = tf.keras.layers.Lambda(lambda z: tf.image.per_image_standardization(z))(inp)
+        p = inp1
         for _ in range(depth):
             p, s = self.u_encoder(p, 2 ** (nfilt + _), degree=degree)
             skipped.append(s)
         p = self.conv_block(p, 2 ** (2 + depth))
         for _ in reversed(range(depth)):
             p = self.u_decoder(p, skipped[_], 2 ** (nfilt + _), degree=degree)
-        p = tf.keras.layers.Conv2D(output_channels, (1, 1), activation='relu')(p)
+        p = tf.keras.layers.Conv2D(output_channels, (1, 1), activation='sigmoid')(p)
         return tf.keras.Model(inp, p, name='differential_operator')
 
 
@@ -537,7 +569,7 @@ def get_nn(architecture, crop, first, second, niter=10, function_type='splines',
                    typee=function_type)
         else:
             return FoE(crop=crop, degree=first, num_filters=second, it_lim=niter,
-                       typee=function_type,gamma=gamma)
+                       typee=function_type, gamma=gamma)
     elif architecture == 'UNet':
         if gamma is None:
             return UNet(crop=crop, degree=first, depth=second, it_lim=niter)

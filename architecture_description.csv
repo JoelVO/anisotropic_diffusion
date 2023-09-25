@@ -12,5 +12,5 @@ FoE,RothBlack,15,11,30
 FoE,RothBlack,25,12,25
 FoE,RothBlack,50,5,20
 UNet,base,15,3,2
-UNet,base,25,3,3
-UNet,base,50,5,4
+UNet,base,25,3,2
+UNet,base,50,3,2

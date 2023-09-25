@@ -1,4 +1,29 @@
-def diffusor(architecture, variance=None, function_type=None, niter=10, crop=256, option=None, gamma=None, degree=None, num_filters=None, depth=None):
+def diffusor(architecture, variance=None, function_type=None, niter=10, crop=256, option=None, gamma=None, degree=None, num_filters=None, depth=None, pad=8):
+    """
+    :param architecture: str. Available options: PeronaMalik, KAutomation, FoE, UNet.
+    :param variance: int. Optional. Variance from the Gaussian noise the corrupted images are supposed to have.
+    Trained models available when variance value is 15, 25 or 50. Default value: None
+    :param function_type: str. Optional unless the architecture is FoE. If the selected arhitecture is
+    FoE, it is compulsory and its available options are splines, decreasing, monomials and RothBlack. It is the family
+    of functions where the diffusion function will be searched in.
+    :param niter: int. Optional. Number of iterations for model has to reconstruct the images. Default value: 10.
+    :param crop: int. Optional. Size of the images. Images are assumed to be squared. Default value: 256.
+    :param option: 1 or 2. Optional. Only used when the selected architecture is KAutomation. If no value is provided,
+    the returned model will be a pre-trained version for the KAutomation model using the non-exponential Perona-Malik
+    diffusion function. Default value: None
+    :param gamma: float. Optional. Time step size. If not provided, the used value will be that the models were trained
+     with.
+    :param degree: int. Optional. Kernel Size. Default value: None.
+    :param num_filters: int. Optional. Number of kernels to be used when the FoE model is selected. Default value: None.
+    :param depth: int. Optional. Number of convolutional blocks for the UNet whenever this architecture is selected.
+    Default value: None.
+    :return: If the selected architecture was PeronaMalik, it will return a Python function corresponding to the
+    Perona-Malik model using the selected function for diffusing from options 1 (exponential) or 2 (non-exponential)
+    alternatives.
+    Otherwise, it will return a Keras model to reconstruct images using the desired architecture. In general, they will
+    not be trained, but a trained version is also available. Take a look at the README for more information.
+    """
+
     import pandas as pd
 
     if architecture == 'PeronaMalik':

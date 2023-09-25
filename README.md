@@ -68,6 +68,7 @@ from anisotropic_diffusion import diffusor
 import cv2
 from glob import glob
 import numpy as np
+import tensorflow as tf
 
 """
 Available options are 1 and 2
@@ -82,6 +83,18 @@ model = diffusor('KAutomation', option=1, crop=256, variance=15)
 images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images)
+
+"""
+To train the model, just compile the model with an optimizer and provide a training data set as you would
+provide for a normal Keras model.
+
+The example below creates a dummy training data set just for illustration purposes.
+"""
+model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
+X = np.random.normal(0, 15, (2, 256, 256, 1))
+Y = np.zeros_like(X)
+model.fit(X, Y, epochs=1, shuffle=False, workers=1)
+
   ```
 </details>
 
@@ -93,7 +106,7 @@ If instead of using the gradient's norm to distinguish where is to be blured and
 
 $$u_t = \text{div}\left(\left(\sum\limits_{n=0}^Na_n(\mathcal{D}_n u)\right)\nabla u\right).$$
 
-The function spaces from were we learned our functions were: splines of order 1, decreasing splines of order 1, monomials and the family of functions used by Roth and Black. To run it in the command line you can write
+The function spaces from where we learned our functions were: splines of order 1, decreasing splines of order 1, monomials and the family of functions used by Roth and Black. To run it in the command line you can write
 
 ```
  python anisotropic_diffusion.py --architecture FoE --function_type <splines, decreasing, monomials or RothBlack> --images <folder_with_images>--variance <15, 25 or 50>
@@ -119,13 +132,25 @@ model = diffusor('FoE', function_type='splines', crop=256, variance=15)
 images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images)
+
+"""
+To train the model, just compile the model with an optimizer and provide a training data set as you would
+provide for a normal Keras model.
+
+The example below creates a dummy training data set just for illustration purposes.
+"""
+model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
+X = np.random.normal(0, 15, (2, 256, 256, 1))
+Y = np.zeros_like(X)
+model.fit(X, Y, epochs=1, shuffle=False, workers=1)
+
   ```
 </details>
 
 <details>
   <summary>U-Net</summary>
 
-The last generalization we tried for this equation was to follow the equation $$u_t-\operatorname{div}(\mathcal{U} (u)\nabla u)=0 were $\mathcal{U}$$ was a U-Net. To use this in the command line, type
+The last generalization we tried for this equation was to follow the equation $$u_t-\text{div}(\mathcal{U} (u)\nabla u)=0$$ were $\mathcal{U}$ was a U-Net. To use this in the command line, type
 ```
  python anisotropic_diffusion.py --architecture UNet --images <folder_with_images> --variance <15, 25 or 50>
   ```
@@ -150,30 +175,42 @@ model = diffusor('UNet', crop=256, variance=15)
 images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images).numpy()[0]
+
+"""
+To train the model, just compile the model with an optimizer and provide a training data set as you would
+provide for a normal Keras model.
+
+The example below creates a dummy training data set just for illustration purposes.
+"""
+model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
+X = np.random.normal(0, 15, (2, 256, 256, 1))
+Y = np.zeros_like(X)
+model.fit(X, Y, epochs=1, shuffle=False, workers=1)
+
   ```
 </details>
 
 </details>
 
 ## Models
-The [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/) dataset was used to train and test out models. Below you can find the validation results.
+The [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/) dataset was used to train and test out models. Below you can find the mean of the validation results.
 
 <details>
   <summary>Perona-Malik</summary>
 
 
-|  Noise variance | PSNR input | PSNR output | SSIM input | SSIM output | 
-| --------------- | ---------- | ----------- | ---------- | ----------- |
-| 15              | 24.61      |   28.58     | 0.59       | 0.78        | 
-| 25              | 20.17      |   25.53     | 0.41       | 0.62        | 
-| 50              | 14.15      |   23.39     | 0.2        | 0.55        | 
+|  Noise variance | PSNR input [db] | PSNR output [db] | SSIM input | SSIM output | 
+| --------------- |-----------------|------------------| ---------- | ----------- |
+| 15              | 24.61           | 28.58            | 0.59       | 0.78        | 
+| 25              | 20.17           | 25.53            | 0.41       | 0.62        | 
+| 50              | 14.15           | 23.39            | 0.2        | 0.55        | 
 
 </details>
 
 <details>
   <summary>Automation of K</summary>
   
-|  Noise variance | PSNR input | PSNR output | SSIM input | SSIM output | 
+|  Noise variance | PSNR input [db]| PSNR output [db]| SSIM input | SSIM output | 
 | --------------- | ---------- | ----------- | ---------- | ----------- |
 | 15              | 24.61      |   29.49     | 0.59       | 0.83        | 
 | 25              | 20.17      |   26.76     | 0.41       | 0.72        | 
@@ -185,7 +222,7 @@ The [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/) 
 <details>
   <summary>FoE using splines of order 1</summary>
   
-|  Noise variance | PSNR input | PSNR output | SSIM input | SSIM output | 
+|  Noise variance | PSNR input [db]| PSNR output [db]| SSIM input | SSIM output | 
 | --------------- | ---------- | ----------- | ---------- | ----------- |
 | 15              | 24.61      |   29.5      | 0.59       | 0.83        | 
 | 25              | 20.17      |   26.99     | 0.41       | 0.74        | 
@@ -197,7 +234,7 @@ The [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/) 
 <details>
   <summary>U-Net</summary>
   
-|  Noise variance | PSNR input | PSNR output | SSIM input | SSIM output | 
+|  Noise variance | PSNR input [db]| PSNR output [db]| SSIM input | SSIM output | 
 | --------------- | ---------- | ----------- | ---------- | ----------- |
 | 15              | 24.61      |   29.26     | 0.59       | 0.83        | 
 | 25              | 20.17      |   27.18     | 0.41       | 0.76        | 
