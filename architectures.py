@@ -8,13 +8,14 @@ class KAutomation(tf.keras.Model):
     for anisotropic diffusion.
     We only consider gray-scale images.
     """
-    def __init__(self, option, crop, it_lim=10, gamma=1., pad=16):
+    def __init__(self, option, crop, it_lim=10, gamma=1., pad=8):
         """
         :param option: 1 or 2. Usual diffusivity to use in the anisotropic diffusion model.
         Options 1 and 2 are the exponential and non-exponential usual diffusivities respectively.
         :param crop: int. Image size. Only considering square images.
         :param it_lim: int. Number of iterations to be made.
         :param gamma: float. Step size.
+        :param pad: int. Size of the pad to be made
         """
         super().__init__()
         self.it_lim = it_lim
@@ -69,7 +70,7 @@ class KAutomation(tf.keras.Model):
         inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
         inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
         reconstructed = self.denoiser(inputs)
-        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
+        return reconstructed[:, self.pad:min(-1, -self.pad), self.pad:min(-1, -self.pad)]
 
     def train_step(self, data):
         x, y = data
@@ -168,7 +169,7 @@ class FoE(tf.keras.Model):
     We only consider gray-scale images.
     """
 
-    def __init__(self, typee, degree, num_filters, crop, it_lim=10, num_classes=20, gamma=1., pad=16):
+    def __init__(self, typee, degree, num_filters, crop, it_lim=10, num_classes=20, gamma=1., pad=8, batch_size=10):
         """
         :param typee: str. Function type to use
         :param degree: int. Size of kernels. All kernels are square.
@@ -176,7 +177,9 @@ class FoE(tf.keras.Model):
         :param crop: int. Image size. Only considering squared images.
         :param it_lim: int. Number of iterations to make for the diffusion.
         :param num_classes: int. Number of pieces in which to define the diffusivities.
-        :param gamma: float. Step size
+        :param gamma: float. Step size.
+        :param pad: int. Size of the pad to be made.
+        :param batch_size: int. Size of the batch. Only needed to be specified while training.
         """
         super().__init__()
         self.it_lim = it_lim
@@ -188,6 +191,7 @@ class FoE(tf.keras.Model):
         self.degree = degree
         self.crop = crop
         self.pad = pad
+        self.batch_size = batch_size
 
         input_shape = (crop + 2*pad, crop + 2*pad, 1)
 
@@ -231,13 +235,17 @@ class FoE(tf.keras.Model):
 
     def call(self, inputs, **kwargs):
         gray_level = tf.math.reduce_mean(inputs)
-        x_pad = gray_level * tf.ones((inputs.shape[0], self.pad, self.crop, 1), dtype=inputs.dtype)
-        y_pad = gray_level * tf.ones((inputs.shape[0], self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+        if inputs.shape[0] is not None:
+            x_pad = gray_level * tf.ones((inputs.shape[0], self.pad, self.crop, 1), dtype=inputs.dtype)
+            y_pad = gray_level * tf.ones((inputs.shape[0], self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
+        else:
+            x_pad = gray_level * tf.ones((self.batch_size, self.pad, self.crop, 1), dtype=inputs.dtype)
+            y_pad = gray_level * tf.ones((self.batch_size, self.crop + 2 * self.pad, self.pad, 1), dtype=inputs.dtype)
 
         inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
         inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
         reconstructed = self.denoiser(inputs)
-        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
+        return reconstructed[:, self.pad:min(-1, -self.pad), self.pad:min(-1, -self.pad)]
 
     def train_step(self, data):
         x, y = data
@@ -407,7 +415,9 @@ class UNet(tf.keras.Model):
         :param depth: int. Depth of U-Net.
         :param degree: int. Size of convolutional kernels. All kernels are squared.
         :param it_lim: int. Number of iterations for diffusion.
-        :param gamma: float. Step size
+        :param gamma: float. Step size.
+        :param pad: int. Size the of pad to be made.
+        :param batch_size: int. Size of the batch. ONly needed when training.
         """
         super().__init__()
         self.it_lim = it_lim
@@ -467,7 +477,7 @@ class UNet(tf.keras.Model):
         inputs = tf.concat((x_pad, inputs, x_pad), axis=1)
         inputs = tf.concat((y_pad, inputs, y_pad), axis=2)
         reconstructed = self.denoiser(inputs)
-        return reconstructed[:, self.pad:min(-1,-self.pad), self.pad:min(-1,-self.pad)]
+        return reconstructed[:, self.pad:min(-1, -self.pad), self.pad:min(-1, -self.pad)]
 
     def train_step(self, data):
         x, y = data
@@ -548,7 +558,7 @@ class UNet(tf.keras.Model):
         return tf.keras.Model(inp, p, name='differential_operator')
 
 
-def get_nn(architecture, crop, first, second, niter=10, function_type='splines',gamma=None):
+def get_nn(architecture, crop, first, second, niter=10, function_type='splines', gamma=None):
     """
     :param architecture: str. Can be KAutomation, FoE or UNet.
     :param crop: int. Image size using square images.
@@ -574,4 +584,4 @@ def get_nn(architecture, crop, first, second, niter=10, function_type='splines',
         if gamma is None:
             return UNet(crop=crop, degree=first, depth=second, it_lim=niter)
         else:
-            return UNet(crop=crop, degree=first, depth=second, it_lim=niter,gamma=gamma)
+            return UNet(crop=crop, degree=first, depth=second, it_lim=niter, gamma=gamma)

@@ -84,17 +84,6 @@ images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images)
 
-"""
-To train the model, just compile the model with an optimizer and provide a training data set as you would
-provide for a normal Keras model.
-
-The example below creates a dummy training data set just for illustration purposes.
-"""
-model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
-X = np.random.normal(0, 15, (2, 256, 256, 1))
-Y = np.zeros_like(X)
-model.fit(X, Y, epochs=1, shuffle=False, workers=1)
-
   ```
 </details>
 
@@ -132,18 +121,6 @@ model = diffusor('FoE', function_type='splines', crop=256, variance=15)
 images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images)
-
-"""
-To train the model, just compile the model with an optimizer and provide a training data set as you would
-provide for a normal Keras model.
-
-The example below creates a dummy training data set just for illustration purposes.
-"""
-model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
-X = np.random.normal(0, 15, (2, 256, 256, 1))
-Y = np.zeros_like(X)
-model.fit(X, Y, epochs=1, shuffle=False, workers=1)
-
   ```
 </details>
 
@@ -175,18 +152,6 @@ model = diffusor('UNet', crop=256, variance=15)
 images = glob('./Set11/*')[0]
 images = np.reshape(cv2.cvtColor(cv2.imread(images), cv2.COLOR_BGR2GRAY), (1, 256, 256, 1))
 reconstructed = model(images).numpy()[0]
-
-"""
-To train the model, just compile the model with an optimizer and provide a training data set as you would
-provide for a normal Keras model.
-
-The example below creates a dummy training data set just for illustration purposes.
-"""
-model.compile(optimizer=tf.keras.optimizers.Adam(0.02, beta_1=0.001, beta_2=0.001), loss='mse')
-X = np.random.normal(0, 15, (2, 256, 256, 1))
-Y = np.zeros_like(X)
-model.fit(X, Y, epochs=1, shuffle=False, workers=1)
-
   ```
 </details>
 
@@ -200,10 +165,10 @@ The [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/) 
 
 
 |  Noise variance | PSNR input [db] | PSNR output [db] | SSIM input | SSIM output | 
-| --------------- |-----------------|------------------| ---------- | ----------- |
-| 15              | 24.61           | 28.58            | 0.59       | 0.78        | 
-| 25              | 20.17           | 25.53            | 0.41       | 0.62        | 
-| 50              | 14.15           | 23.39            | 0.2        | 0.55        | 
+| --------------- |-----------------|------------------| ---------- |-------------|
+| 15              | 24.61           | 26.53            | 0.59       | 0.67        | 
+| 25              | 20.17           | 23.15            | 0.41       | 0.49        | 
+| 50              | 14.15           | 17.98            | 0.2        | 0.27        | 
 
 </details>
 

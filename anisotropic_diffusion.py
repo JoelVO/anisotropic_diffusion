@@ -209,7 +209,7 @@ if __name__ == '__main__':
     images = [log for log in glob(f'{images}/*') if not os.path.isdir(log)]
     images = np.stack(images)
     images_names = [im.split('/')[-1] for im in images]
-    images = [cv2.cvtColor(cv2.imread(im), cv2.COLOR_BGR2GRAY) for im in images]
+    images = [np.expand_dims(cv2.cvtColor(cv2.imread(im), cv2.COLOR_BGR2GRAY),axis=-1) for im in images]
     shapes = [im.shape for im in images]
     unique_shapes = np.unique(shapes, axis=0)
 
